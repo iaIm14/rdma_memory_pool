@@ -20,7 +20,7 @@ init_server(const int tcp_port,     /* server TCP port */
     exit(1);
   }
   memory_region *memreg = nullptr;
-  if (register_mr(memreg, res)) {
+  if (register_mr(memreg, res, nullptr, strlen(VERIFIER) + 1)) {
     fprintf(stderr, "failed to register memory regions\n");
     return nullptr;
   }

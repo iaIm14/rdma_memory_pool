@@ -413,7 +413,7 @@ int register_mr(memory_region *&memreg, struct resources *res, const char *buf,
     memreg = new memory_region();
   else {
     fprintf(stderr, "memreg is not nullptr\n");
-    goto register_mr_exit;
+    return 1;
   }
   /* allocate the memory buffer that will hold the data */
   if (size == -1 && buf == nullptr) {
@@ -439,9 +439,6 @@ int register_mr(memory_region *&memreg, struct resources *res, const char *buf,
   fprintf(stdout,
           "MR was registered with addr=%p, lkey=0x%x, rkey=0x%x, flags=0x%x\n",
           memreg->buf, memreg->mr->lkey, memreg->mr->rkey, mr_flags);
-
-  res->memregs.emplace_back(std::move(*memreg));
-  memreg = &res->memregs.back();
   return rc;
 register_mr_exit:
   if (rc)
@@ -587,8 +584,12 @@ int connect_qp(connection *&conn, struct resources *res, memory_region *memreg,
   int rc = 0;
   int cq_size = 0;
   struct ibv_qp_init_attr qp_init_attr;
-  memreg->conns.emplace_back();
-  conn = &memreg->conns.back();
+  if (conn == nullptr)
+    conn = new connection();
+  else {
+    fprintf(stderr, "conn is not nullptr\n");
+    return 1;
+  }
   /* if client side */
   if (serverName) {
     conn->sock = sock_connect(serverName, tcpPort);
@@ -716,20 +717,7 @@ int connect_qp(connection *&conn, struct resources *res, memory_region *memreg,
 connect_qp_exit:
   if (rc) {
     /* Error encountered, cleanup */
-    if (conn->qp) {
-      ibv_destroy_qp(conn->qp);
-      conn->qp = nullptr;
-    }
-    if (conn->cq) {
-      ibv_destroy_cq(conn->cq);
-      conn->cq = nullptr;
-    }
-    if (conn->sock >= 0) {
-      if (close(conn->sock))
-        fprintf(stderr, "failed to close socket\n");
-      conn->sock = -1;
-    }
-    memreg->conns.pop_back();
+    delete conn;
   }
   return rc;
 }
@@ -750,7 +738,6 @@ connect_qp_exit:
  ******************************************************************************/
 int resources_destroy(struct resources *res) {
   int rc = 0;
-  res->memregs.clear();
 
   if (res->pd)
     if (ibv_dealloc_pd(res->pd)) {

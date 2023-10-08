@@ -49,17 +49,18 @@ struct cm_con_data_t {
 
 class connection {
 public:
-  struct ibv_cq *cq; /* CQ handle */
-  struct ibv_qp *qp; /* QP handle */
-  int sock{-1};      /* TCP socket file descriptor */
+  struct ibv_cq *cq{nullptr}; /* CQ handle */
+  struct ibv_qp *qp{nullptr}; /* QP handle */
+  int sock{-1};               /* TCP socket file descriptor */
   ~connection() noexcept;
 };
 
+// we make sure no memory leak. buf read/write is not thread safe
 class memory_region {
 public:
-  std::vector<connection> conns; /* support only one is okey */
-  struct ibv_mr *mr{nullptr};    /* MR handle for buf */
-  std::atomic<int32_t> ref_{0};  /* reference count */
+  connection *conn{nullptr};    /* connection handle */
+  struct ibv_mr *mr{nullptr};   /* MR handle for buf */
+  std::atomic<int32_t> ref_{0}; /* reference count */
   char *buf{nullptr}; /* memory buffer pointer, used for RDMA and send ops */
   size_t size{0};     /* memory buffer size */
   bool alloc(size_t size);
@@ -82,7 +83,6 @@ public:
   struct cm_con_data_t remote_props; /* values to connect to remote side */
   struct ibv_context *ib_ctx;        /* device handle */
   struct ibv_pd *pd;                 /* PD handle */
-  std::vector<memory_region> memregs;
 };
 
 } // namespace mempool

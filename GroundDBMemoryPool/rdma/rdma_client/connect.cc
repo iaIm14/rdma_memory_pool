@@ -22,7 +22,7 @@ connectServer(const char *server_name, /* server host name */
     return nullptr;
   }
   memory_region *memreg = nullptr;
-  if (register_mr(memreg, res)) {
+  if (register_mr(memreg, res, nullptr, 1)) {
     fprintf(stderr, "failed to register memory regions\n");
     return nullptr;
   }
@@ -32,17 +32,9 @@ connectServer(const char *server_name, /* server host name */
     return nullptr;
   }
 #ifdef GROUNDDB_MEMORY_POOL_DEBUG
-  if (post_receive(res, memreg, conn)) {
-    fprintf(stderr, "failed to post RR\n");
-    return nullptr;
-  }
-  if (poll_completion(&res->memregs[0].conns[0])) {
-    fprintf(stderr, "poll completion failed\n");
-    return nullptr;
-  }
   char *buf = new char[strlen(VERIFIER) + 1];
   rdma_read(res, memreg, conn, buf, strlen(VERIFIER) + 1);
-  if (strcmp(res->memregs[0].buf, VERIFIER) != 0) {
+  if (strcmp(memreg->buf, VERIFIER) != 0) {
     fprintf(stderr, "failed to verify connection\n");
     return nullptr;
   }

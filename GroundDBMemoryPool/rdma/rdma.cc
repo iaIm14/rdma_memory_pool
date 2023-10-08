@@ -54,18 +54,20 @@ memory_region::memory_region(memory_region &&memreg) noexcept {
   size = memreg.size;
   memreg.buf = nullptr;
   memreg.size = 0;
-  conns = std::move(memreg.conns);
+  conn = memreg.conn;
+  memreg.conn = nullptr;
   mr = memreg.mr;
   memreg.mr = nullptr;
 }
 
 memory_region::~memory_region() {
+  if (conn)
+    delete conn;
   deref();
   if (mr) {
     ibv_dereg_mr(mr);
     mr = nullptr;
   }
-  conns.clear();
 }
 
 } // namespace mempool
