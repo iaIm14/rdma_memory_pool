@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 project(GroundDBMemoryPool)
 
+add_definitions(-D_GROUNDDB_MEMORY_POOL_DEBUG false)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(/usr/include/rdma)
 # GoogleTest requires at least C++14

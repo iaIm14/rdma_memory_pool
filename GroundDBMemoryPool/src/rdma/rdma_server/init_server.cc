@@ -29,7 +29,7 @@ init_server(const int tcp_port,     /* server TCP port */
     fprintf(stderr, "failed to connect QPs\n");
     exit(1);
   }
-  // Following lines are only for simulation and will be removed in the future.
+#ifdef GROUNDDB_MEMORY_POOL_DEBUG
   sleep(1);
   strcpy(memreg->buf, VERIFIER);
   fprintf(stdout, "going to send the message: '%s'\n", memreg->buf);
@@ -37,7 +37,7 @@ init_server(const int tcp_port,     /* server TCP port */
     fprintf(stderr, "failed to post SR\n");
     exit(1);
   }
-  // Remove until here
+#endif
   return res;
 }
 

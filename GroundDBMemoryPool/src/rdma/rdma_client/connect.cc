@@ -35,7 +35,7 @@ connectServer(const char *server_name, /* server host name */
     fprintf(stderr, "failed to post RR\n");
     return nullptr;
   }
-  if (poll_completion(res, &res->memregs[0].conns[0])) {
+  if (poll_completion(&res->memregs[0].conns[0])) {
     fprintf(stderr, "poll completion failed\n");
     return nullptr;
   }

@@ -148,10 +148,6 @@ End of socket operations
  * poll the queue until MAX_POLL_CQ_TIMEOUT milliseconds have passed.
  *
  ******************************************************************************/
-int poll_completion(const struct resources *res,
-                    const struct connection *conn) {
-  return poll_completion(conn);
-}
 int poll_completion(const struct connection *conn) {
   struct ibv_wc wc;
   unsigned long start_time_msec;
