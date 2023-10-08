@@ -1,8 +1,2 @@
-#include <memoryPool.hh>
-int main()
-{
-    mempool::init_server(
-        122189,
-        NULL,
-        1);
-}
+#include "rdma.hh"
+int main() { mempool::init_server(122189, nullptr, 1); }
