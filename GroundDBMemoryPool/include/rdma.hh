@@ -1,10 +1,13 @@
 #pragma once
+#include <atomic>
 #include <byteswap.h>
 #include <cinttypes>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <endian.h>
 #include <getopt.h>
 #include <unistd.h>
@@ -44,28 +47,42 @@ struct cm_con_data_t {
   uint8_t gid[16]; /* gid */
 } __attribute__((packed));
 
-struct connection {
+class connection {
+public:
   struct ibv_cq *cq; /* CQ handle */
   struct ibv_qp *qp; /* QP handle */
   int sock{-1};      /* TCP socket file descriptor */
+  ~connection() noexcept;
 };
-struct memory_region {
-  std::vector<connection> conns;
-  struct ibv_mr *mr; /* MR handle for buf */
-  char *buf;         /* memory buffer pointer, used for RDMA and send ops */
-  bool isBufDeletableFlag; /* whether buf is exclusive or not */
+
+class memory_region {
+public:
+  std::vector<connection> conns; /* support only one is okey */
+  struct ibv_mr *mr{nullptr};    /* MR handle for buf */
+  std::atomic<int32_t> ref_{0};  /* reference count */
+  char *buf{nullptr}; /* memory buffer pointer, used for RDMA and send ops */
+  size_t size{0};     /* memory buffer size */
+  bool alloc(size_t size);
+  bool reg(const char *buf, size_t size);
+  void ref();
+  void deref();
+
+public:
+  memory_region() = default;
+  ~memory_region();
+  memory_region(const memory_region &) = delete;
+  memory_region(memory_region &&memreg) noexcept;
 };
 /* structure of system resources */
-struct resources {
+class resources {
+public:
   struct ibv_device_attr device_attr;
   /* Device attributes */
   struct ibv_port_attr port_attr;    /* IB port attributes */
   struct cm_con_data_t remote_props; /* values to connect to remote side */
   struct ibv_context *ib_ctx;        /* device handle */
   struct ibv_pd *pd;                 /* PD handle */
-  std::vector<struct memory_region> memregs;
+  std::vector<memory_region> memregs;
 };
 
 } // namespace mempool
-
-#include "rdma_interfaces.hh"

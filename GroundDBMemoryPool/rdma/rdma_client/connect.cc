@@ -1,4 +1,5 @@
-#include "../util.h"
+#include "rdma_client.hh"
+#include "util.h"
 #include <rdma.hh>
 
 namespace mempool {
@@ -10,7 +11,7 @@ connectServer(const char *server_name, /* server host name */
                                           will use the first  found device */
               const int ib_port        /* server IB port */
 ) {
-  struct resources *res = new struct resources();
+  auto *res = new struct resources();
   if (!res) {
     fprintf(stderr, "failed to malloc struct resource\n");
     return nullptr;
@@ -20,17 +21,17 @@ connectServer(const char *server_name, /* server host name */
     fprintf(stderr, "failed to create resources\n");
     return nullptr;
   }
-  struct memory_region *memreg = nullptr;
+  memory_region *memreg = nullptr;
   if (register_mr(memreg, res)) {
     fprintf(stderr, "failed to register memory regions\n");
     return nullptr;
   }
-  struct connection *conn = nullptr;
+  connection *conn = nullptr;
   if (connect_qp(conn, res, memreg, server_name, tcp_port, -1, ib_port)) {
     fprintf(stderr, "failed to connect QPs\n");
     return nullptr;
   }
-  // Following lines are only for simulation and will be removed in the future.
+#ifdef GROUNDDB_MEMORY_POOL_DEBUG
   if (post_receive(res, memreg, conn)) {
     fprintf(stderr, "failed to post RR\n");
     return nullptr;
@@ -39,12 +40,14 @@ connectServer(const char *server_name, /* server host name */
     fprintf(stderr, "poll completion failed\n");
     return nullptr;
   }
-  if (strcmp(res->memregs[0].buf, VERIFIER)) {
+  char *buf = new char[strlen(VERIFIER) + 1];
+  rdma_read(res, memreg, conn, buf, strlen(VERIFIER) + 1);
+  if (strcmp(res->memregs[0].buf, VERIFIER) != 0) {
     fprintf(stderr, "failed to verify connection\n");
     return nullptr;
   }
   fprintf(stdout, "Connection verified\n");
-  // Remove until here
+#endif
   return res;
 }
 

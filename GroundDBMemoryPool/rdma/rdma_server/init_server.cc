@@ -1,15 +1,15 @@
-#include "../util.h"
+#include "util.h"
 #include <rdma.hh>
 
 namespace mempool {
 
-struct resources *
+resources *
 init_server(const int tcp_port,     /* server TCP port */
             const char *ib_devname, /* server device name. If nullptr, client
                                        will use the first found device */
             const int ib_port       /* server IB port */
 ) {
-  auto *res = new struct resources();
+  auto *res = new resources();
   if (!res) {
     fprintf(stderr, "failed to malloc struct resource\n");
     exit(1);
@@ -19,12 +19,12 @@ init_server(const int tcp_port,     /* server TCP port */
     fprintf(stderr, "failed to create resources\n");
     exit(1);
   }
-  struct memory_region *memreg = nullptr;
+  memory_region *memreg = nullptr;
   if (register_mr(memreg, res)) {
     fprintf(stderr, "failed to register memory regions\n");
     return nullptr;
   }
-  struct connection *conn = nullptr;
+  connection *conn = nullptr;
   if (connect_qp(conn, res, memreg, nullptr, tcp_port, -1, ib_port)) {
     fprintf(stderr, "failed to connect QPs\n");
     exit(1);

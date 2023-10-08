@@ -1,8 +1,8 @@
 CompileFlags:                             
     Add: 
       [
-        -I/root/code/GroundDB/GroundDBMemoryPool,
         -I/root/code/GroundDB/GroundDBMemoryPool/include,
+        -I/root/code/GroundDB/GroundDBMemoryPool/util,
         -DGFLAGS,
         -DGROUNDDB_MEMORY_POOL_DEBUG,
       ]

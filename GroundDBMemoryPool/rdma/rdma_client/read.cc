@@ -1,10 +1,10 @@
-#include "../util.h"
+#include "util.h"
 #include <rdma.hh>
 
 namespace mempool {
 
 int rdma_read(const struct resources *res, /* RDMA Connection resources */
-              const struct memory_region *memreg, const struct connection *conn,
+              const memory_region *memreg, const connection *conn,
               char *buffer,     /* Local buffer to read into */
               const size_t size /* number of bytes to read */
 ) {

@@ -1,4 +1,5 @@
 #pragma once
+#include "rdma.hh"
 #include <cstdio>
 namespace mempool {
 
@@ -30,13 +31,3 @@ int rdma_flush(const struct resources *res, /* RDMA Connection resources */
                const char *buffer /* buffer to flush*/);
 
 } // namespace mempool
-
-// Server
-namespace mempool {
-struct resources *
-init_server(const int tcp_port,     /* server TCP port */
-            const char *ib_devname, /* server device name. If nullptr, client
-                                       will use the first found device */
-            const int ib_port       /* server IB port */
-);
-}

@@ -1,6 +1,5 @@
 #include "util.h"
-#include <rdma.hh>
-
+#include <cstdio>
 namespace mempool {
 /******************************************************************************
 Socket operations
@@ -148,7 +147,7 @@ End of socket operations
  * poll the queue until MAX_POLL_CQ_TIMEOUT milliseconds have passed.
  *
  ******************************************************************************/
-int poll_completion(const struct connection *conn) {
+int poll_completion(const connection *conn) {
   struct ibv_wc wc;
   unsigned long start_time_msec;
   unsigned long cur_time_msec;
@@ -201,8 +200,8 @@ int poll_completion(const struct connection *conn) {
  * Description
  * This function will create and post a send work request
  ******************************************************************************/
-int post_send(const struct resources *res, const struct memory_region *memreg,
-              const struct connection *conn, const enum ibv_wr_opcode opcode) {
+int post_send(const struct resources *res, const memory_region *memreg,
+              const connection *conn, const enum ibv_wr_opcode opcode) {
   struct ibv_send_wr sr;
   struct ibv_sge sge;
   struct ibv_send_wr *bad_wr = nullptr;
@@ -262,13 +261,11 @@ int post_send(const struct resources *res, const struct memory_region *memreg,
  * Description
  *
  ******************************************************************************/
-int post_receive(const struct resources *res,
-                 const struct memory_region *memregs,
-                 const struct connection *conn) {
+int post_receive(const struct resources *res, const memory_region *memregs,
+                 const connection *conn) {
   return post_receive(memregs, conn);
 }
-int post_receive(const struct memory_region *memreg,
-                 const struct connection *conn) {
+int post_receive(const memory_region *memreg, const connection *conn) {
   struct ibv_recv_wr rr;
   struct ibv_sge sge;
   struct ibv_recv_wr *bad_wr;
@@ -408,24 +405,27 @@ resources_create_exit:
  * Description
  * Register a new memory region.
  ******************************************************************************/
-int register_mr(struct memory_region *&memreg, struct resources *res,
-                const char *buf, size_t size) {
+int register_mr(memory_region *&memreg, struct resources *res, const char *buf,
+                size_t size) {
   int mr_flags = 0;
-  int rc = 0;
-  res->memregs.emplace_back();
-  memreg = &res->memregs.back();
+  bool rc = false;
+  if (memreg == nullptr)
+    memreg = new memory_region();
+  else {
+    fprintf(stderr, "memreg is not nullptr\n");
+    goto register_mr_exit;
+  }
   /* allocate the memory buffer that will hold the data */
-  if (buf == nullptr) {
-    memreg->buf = new char[size]();
-    if (!memreg->buf) {
-      fprintf(stderr, "failed to malloc %Zu bytes to memory buffer\n", size);
-      rc = 1;
-      goto register_mr_exit;
-    }
-    memreg->isBufDeletableFlag = true;
+  if (size == -1 && buf == nullptr) {
+    fprintf(stderr, "need to specify size or buf pointer\n");
+    goto register_mr_exit;
+  } else if (buf == nullptr && size > 0) {
+    memreg->alloc(size);
+  } else if (buf != nullptr && size > 0) {
+    memreg->reg(buf, size);
   } else {
-    memreg->buf = (char *)buf;
-    memreg->isBufDeletableFlag = false;
+    fprintf(stderr, "unexpected error\n");
+    goto register_mr_exit;
   }
   /* register the memory buffer */
   mr_flags =
@@ -433,25 +433,20 @@ int register_mr(struct memory_region *&memreg, struct resources *res,
   memreg->mr = ibv_reg_mr(res->pd, memreg->buf, size, mr_flags);
   if (!memreg->mr) {
     fprintf(stderr, "ibv_reg_mr failed with mr_flags=0x%x\n", mr_flags);
-    rc = 1;
+    rc = true;
     goto register_mr_exit;
   }
   fprintf(stdout,
           "MR was registered with addr=%p, lkey=0x%x, rkey=0x%x, flags=0x%x\n",
           memreg->buf, memreg->mr->lkey, memreg->mr->rkey, mr_flags);
+
+  res->memregs.emplace_back(std::move(*memreg));
+  memreg = &res->memregs.back();
+  return rc;
 register_mr_exit:
-  if (rc) {
-    /* Error encountered, cleanup */
-    if (memreg->mr) {
-      ibv_dereg_mr(memreg->mr);
-      memreg->mr = nullptr;
-    }
-    if (memreg->buf && memreg->isBufDeletableFlag) {
-      free(memreg->buf);
-      memreg->buf = nullptr;
-    }
-    res->memregs.pop_back();
-  }
+  if (rc)
+    memreg->deref();
+  delete memreg;
   return rc;
 }
 /******************************************************************************
@@ -585,10 +580,10 @@ static int modify_qp_to_rts(struct ibv_qp *qp) {
  * Description
  * Connect the QP. Transition the server side to RTR, sender side to RTS
  ******************************************************************************/
-int connect_qp(struct connection *&conn, struct resources *res,
-               struct memory_region *memreg, const char *serverName,
-               const int tcpPort, const int gid_idx, const int ibPort) {
-  // Initialize a struct connection
+int connect_qp(connection *&conn, struct resources *res, memory_region *memreg,
+               const char *serverName, const int tcpPort, const int gid_idx,
+               const int ibPort) {
+  // Initialize a connection
   int rc = 0;
   int cq_size = 0;
   struct ibv_qp_init_attr qp_init_attr;
@@ -755,32 +750,8 @@ connect_qp_exit:
  ******************************************************************************/
 int resources_destroy(struct resources *res) {
   int rc = 0;
-  for (auto &memreg : res->memregs) {
-    for (auto &conn : memreg.conns) {
-      if (conn.qp)
-        if (ibv_destroy_qp(conn.qp)) {
-          fprintf(stderr, "failed to destroy QP\n");
-          rc = 1;
-        }
-      if (conn.cq)
-        if (ibv_destroy_cq(conn.cq)) {
-          fprintf(stderr, "failed to destroy CQ\n");
-          rc = 1;
-        }
-      if (conn.sock >= 0)
-        if (close(conn.sock)) {
-          fprintf(stderr, "failed to close socket\n");
-          rc = 1;
-        }
-    }
-    if (memreg.mr)
-      if (ibv_dereg_mr(memreg.mr)) {
-        fprintf(stderr, "failed to deregister MR\n");
-        rc = 1;
-      }
-    if (memreg.buf && memreg.isBufDeletableFlag)
-      free(memreg.buf);
-  }
+  res->memregs.clear();
+
   if (res->pd)
     if (ibv_dealloc_pd(res->pd)) {
       fprintf(stderr, "failed to deallocate PD\n");
