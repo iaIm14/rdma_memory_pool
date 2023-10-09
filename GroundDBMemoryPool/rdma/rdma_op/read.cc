@@ -1,4 +1,4 @@
-#include "lagacy.h"
+#include "lagacy.hh"
 #include <rdma.hh>
 
 namespace mempool {
@@ -13,7 +13,7 @@ int rdma_read(const struct resources *res, /* RDMA Connection resources */
     return 1;
   }
 
-  if (poll_completion(res, conn)) {
+  if (poll_completion(conn)) {
     fprintf(stderr, "poll completion failed\n");
     return 1;
   }

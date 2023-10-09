@@ -1,4 +1,4 @@
-#include "lagacy.h"
+#include "lagacy.hh"
 #include <rdma.hh>
 
 namespace mempool {
@@ -30,11 +30,10 @@ init_server(const int tcp_port,     /* server TCP port */
     exit(1);
   }
 #ifdef GROUNDDB_MEMORY_POOL_DEBUG
-  sleep(1);
   strcpy(memreg->buf, VERIFIER);
   fprintf(stdout, "going to send the message: '%s'\n", memreg->buf);
-  if (post_send(res, memreg, conn, IBV_WR_SEND)) {
-    fprintf(stderr, "failed to post SR\n");
+  if (rdma_write(res, memreg, conn, memreg->buf, strlen(VERIFIER) + 1)) {
+    fprintf(stderr, "failed to write to remote memory\n");
     exit(1);
   }
 #endif

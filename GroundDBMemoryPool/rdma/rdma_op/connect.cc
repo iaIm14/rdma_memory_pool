@@ -1,4 +1,4 @@
-#include "lagacy.h"
+#include "lagacy.hh"
 #include "rdma.hh"
 #include <rdma.hh>
 

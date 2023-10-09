@@ -1,6 +1,7 @@
 #pragma once
 #include <atomic>
 #include <byteswap.h>
+#include <cassert>
 #include <cinttypes>
 #include <cstddef>
 #include <cstdint>
@@ -83,6 +84,49 @@ public:
   struct cm_con_data_t remote_props; /* values to connect to remote side */
   struct ibv_context *ib_ctx;        /* device handle */
   struct ibv_pd *pd;                 /* PD handle */
+};
+
+class RDMABase {
+public:
+  resources *res{nullptr};
+  explicit RDMABase(const char *server_name, const char *dev_name = nullptr,
+                    const int ib_port = 1);
+  ~RDMABase() {
+    if (res->pd)
+      if (ibv_dealloc_pd(res->pd)) {
+        fprintf(stderr, "failed to deallocate PD\n");
+      }
+    if (res->ib_ctx)
+      if (ibv_close_device(res->ib_ctx)) {
+        fprintf(stderr, "failed to close device context\n");
+      }
+  }
+};
+
+// rdma client side
+class RDMANode {
+public:
+  explicit RDMANode(RDMABase *base, const char *server_name, const int tcp_port,
+                    const char *dev_name = nullptr, const int ib_port = 1)
+      : base_(base), server_name_(server_name), tcp_port_(tcp_port),
+        ib_port_(ib_port) {
+    if (base == nullptr) {
+      fprintf(stderr, "base resource is nullptr\n");
+      exit(1);
+    }
+  }
+
+  bool send(const void *buf, size_t size);
+  bool receive(void *buf, size_t size);
+  bool receive_meta(size_t *size);
+  bool send_meta(size_t size);
+  ~RDMANode() = default;
+  RDMABase *base_{nullptr};
+  const char *server_name_{nullptr};
+  const int tcp_port_{0};
+  const int ib_port_{1};
+  connection *conn_{nullptr};
+  memory_region *memreg_{nullptr};
 };
 
 } // namespace mempool
